@@ -1,0 +1,1628 @@
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+<head>
+
+<title>
+
+Copy of Invisible love for ADR .prproj</title>
+
+<script>
+
+
+/* Table CSS selector */
+
+
+csstableselector = {
+
+  init: function() {
+
+    if (!document.getElementsByTagName) return;  
+
+
+    forEach(document.getElementsByName('CSSSelector'), function(selector) {
+
+        csstableselector.addSelectEvent(selector);
+
+    });
+
+  },
+
+
+  addSelectEvent: function(selector) {
+
+	dean_addEvent(selector,"change", function(e) {
+
+		document.getElementById('TableGenerator').className = this.value;
+
+	});
+
+  }
+
+}
+
+
+/* Images Control */
+
+
+var aspectRatio = 1;
+
+
+controlimage = {
+
+  init: function() {
+
+    if (!document.getElementsByTagName) return;  
+
+
+    forEach(document.getElementsByTagName('img'), function(image) {
+
+        controlimage.adjustWidthAndHeight(image);
+
+    });
+
+  },
+
+
+  adjustWidthAndHeight: function(image) {
+
+    if (image.height>100)
+
+    { 
+
+      aspectRatio = image.height/image.width;
+
+      image.height = 100;
+
+      image.width = 100/aspectRatio;
+
+    }
+
+	   
+
+    if (image.width>150) 
+
+    { 
+
+      aspectRatio = image.height/image.width;
+
+      image.width = 150;
+
+      image.height = image.width*aspectRatio;
+
+    }
+
+  }
+
+}
+
+ 
+
+ 
+
+
+/* Table Sorting */
+
+var stIsIE = /*@cc_on!@*/false;
+
+
+sorttable = {
+
+  init: function() {
+
+    /* quit if this function has already been called */
+
+    if (arguments.callee.done) return;
+
+    /* flag this function so we don't do the same thing twice */
+
+    arguments.callee.done = true;
+
+    /* kill the timer */
+
+    if (_timer) clearInterval(_timer);
+
+
+    if (!document.createElement || !document.getElementsByTagName) return;
+
+
+    sorttable.DATE_RE = /^(\d\d?)[\/\.-](\d\d?)[\/\.-]((\d\d)?\d\d)$/;
+
+
+    forEach(document.getElementsByTagName('table'), function(table) {
+
+        sorttable.makeSortable(table);
+
+    });
+
+
+  },
+
+
+  makeSortable: function(table) {
+
+    if (table.getElementsByTagName('thead').length == 0) {
+
+      /* table doesn't have a tHead. Since it should have, create one and
+
+         put the first table row in it. */
+
+      the = document.createElement('thead');
+
+      the.appendChild(table.rows[0]);
+
+      table.insertBefore(the,table.firstChild);
+
+    }
+
+    /* Safari doesn't support table.tHead, sigh */
+
+    if (table.tHead == null) table.tHead = table.getElementsByTagName('thead')[0];
+
+	
+
+    if (table.tHead.rows.length != 1) return; 
+
+    /* can't cope with two header rows
+
+     Sorttable v1 put rows with a class of "sortbottom" at the bottom (as
+
+     "total" rows, for example). This is B&R, since what you're supposed
+
+     to do is put them in a tfoot. So, if there are sortbottom rows,
+
+     for backwards compatibility, move them to tfoot (creating it if needed). */
+
+    sortbottomrows = [];
+
+    for (var i=0; i<table.rows.length; i++) {
+
+      if (table.rows[i].className.search(/\bsortbottom\b/) != -1) {
+
+        sortbottomrows[sortbottomrows.length] = table.rows[i];
+
+      }
+
+    }
+
+    if (sortbottomrows) {
+
+      if (table.tFoot == null) {
+
+        /* table doesn't have a tfoot. Create one. */
+
+        tfo = document.createElement('tfoot');
+
+        table.appendChild(tfo);
+
+      }
+
+      for (var i=0; i<sortbottomrows.length; i++) {
+
+        tfo.appendChild(sortbottomrows[i]);
+
+      }
+
+      delete sortbottomrows;
+
+    }
+
+
+    /* work through each column and calculate its type */
+
+    headrow = table.tHead.rows[0].cells;
+
+    for (var i=0; i<headrow.length; i++) {
+
+      /* manually override the type with a sorttable_type attribute */
+
+      if (!headrow[i].className.match(/\bsorttable_nosort\b/)) { /* skip this col */
+
+        mtch = headrow[i].className.match(/\bsorttable_([a-z0-9]+)\b/);
+
+        if (mtch) { override = mtch[1]; }
+
+	      if (mtch && typeof sorttable["sort_"+override] == 'function') {
+
+	        headrow[i].sorttable_sortfunction = sorttable["sort_"+override];
+
+	      } else {
+
+	        headrow[i].sorttable_sortfunction = sorttable.guessType(table,i);
+
+	      }
+
+	      /* make it clickable to sort */
+
+	      headrow[i].sorttable_columnindex = i;
+
+	      headrow[i].sorttable_tbody = table.tBodies[0];
+
+	      dean_addEvent(headrow[i],"click", sorttable.innerSortFunction = function(e) {
+
+
+          if (this.className.search(/\bsorttable_sorted\b/) != -1) {
+
+            /* if we're already sorted by this column, just
+
+             reverse the table, which is quicker */
+
+            sorttable.reverse(this.sorttable_tbody);
+
+            this.className = this.className.replace('sorttable_sorted',
+
+                                                    'sorttable_sorted_reverse');
+
+            this.removeChild(document.getElementById('sorttable_sortfwdind'));
+
+            sortrevind = document.createElement('span');
+
+            sortrevind.id = "sorttable_sortrevind";
+
+            sortrevind.innerHTML = stIsIE ? '&nbsp<font face="webdings">5</font>' : '&nbsp;&#x25B4;';
+
+            this.appendChild(sortrevind);
+
+            return;
+
+          }
+
+          if (this.className.search(/\bsorttable_sorted_reverse\b/) != -1) {
+
+            /* if we're already sorted by this column in reverse, just
+
+             re-reverse the table, which is quicker */
+
+            sorttable.reverse(this.sorttable_tbody);
+
+            this.className = this.className.replace('sorttable_sorted_reverse',
+
+                                                    'sorttable_sorted');
+
+            this.removeChild(document.getElementById('sorttable_sortrevind'));
+
+            sortfwdind = document.createElement('span');
+
+            sortfwdind.id = "sorttable_sortfwdind";
+
+            sortfwdind.innerHTML = stIsIE ? '&nbsp<font face="webdings">6</font>' : '&nbsp;&#x25BE;';
+
+            this.appendChild(sortfwdind);
+
+            return;
+
+          }
+
+
+          /* remove sorttable_sorted classes */
+
+          theadrow = this.parentNode;
+
+          forEach(theadrow.childNodes, function(cell) {
+
+            if (cell.nodeType == 1) { /* an element */
+
+              cell.className = cell.className.replace('sorttable_sorted_reverse','');
+
+              cell.className = cell.className.replace('sorttable_sorted','');
+
+            }
+
+          });
+
+          sortfwdind = document.getElementById('sorttable_sortfwdind');
+
+          if (sortfwdind) { sortfwdind.parentNode.removeChild(sortfwdind); }
+
+          sortrevind = document.getElementById('sorttable_sortrevind');
+
+          if (sortrevind) { sortrevind.parentNode.removeChild(sortrevind); }
+
+
+          this.className += ' sorttable_sorted';
+
+          sortfwdind = document.createElement('span');
+
+          sortfwdind.id = "sorttable_sortfwdind";
+
+          sortfwdind.innerHTML = stIsIE ? '&nbsp<font face="webdings">6</font>' : '&nbsp;&#x25BE;';
+
+          this.appendChild(sortfwdind);
+
+
+	        /* build an array to sort. This is a Schwartzian transform thing,
+
+	         i.e., we "decorate" each row with the actual sort key,
+
+	         sort based on the sort keys, and then put the rows back in order
+
+	         which is a lot faster because you only do getInnerText once per row */
+
+	        row_array = [];
+
+	        col = this.sorttable_columnindex;
+
+	        rows = this.sorttable_tbody.rows;
+
+	        for (var j=0; j<rows.length; j++) {
+
+				row_array[row_array.length] = [sorttable.getInnerText(rows[j].cells[col]), rows[j]];
+
+	        }
+
+	        /* If you want a stable sort, uncomment the following line 
+
+	        sorttable.shaker_sort(row_array, this.sorttable_sortfunction);
+
+	        and comment out this one */
+
+	        row_array.sort(this.sorttable_sortfunction);
+
+
+	        tb = this.sorttable_tbody;
+
+	        for (var j=0; j<row_array.length; j++) {
+
+			  if ((j+1)%2==0){
+
+				  row_array[j][1].className = 'nth-child-even';
+
+			  }else{
+
+				  row_array[j][1].className = 'nth-child-odd';
+
+			  }
+
+
+			  tb.appendChild(row_array[j][1]);
+
+	        }
+
+
+	        delete row_array;
+
+	      });
+
+	    }
+
+    }
+
+  },
+
+
+  guessType: function(table, column) {
+
+    /* guess the type of a column based on its first non-blank row */
+
+    sortfn = sorttable.sort_alpha;
+
+
+	if(table.tBodies[0].rows.length > 0){
+
+		sortfn = sorttable.getType(table, 0, column);
+
+	}
+
+
+    for (var i=1; i<table.tBodies[0].rows.length; i++) {
+
+		if (sortfn !=  sorttable.getType(table, i, column))
+
+		{
+
+			return sorttable.sort_alpha;
+
+		}
+
+    }
+
+
+    return sortfn;
+
+  },
+
+
+  getType: function (table, row, column)
+
+  {
+
+	 sortfn = sorttable.sort_alpha;
+
+     text = sorttable.getInnerText(table.tBodies[0].rows[row].cells[column]);
+
+     if (text != '') {
+
+        if (text.match(/^-?[£$¤]?[\d,.]+%?$/)) {
+
+          return sorttable.sort_numeric;
+
+        }
+
+        /* check for a date: dd/mm/yyyy or dd/mm/yy
+
+         can have / or . or - as separator
+
+         can be mm/dd as well */
+
+        possdate = text.match(sorttable.DATE_RE)
+
+        if (possdate) {
+
+          /* looks like a date */
+
+          first = parseInt(possdate[1]);
+
+          second = parseInt(possdate[2]);
+
+          if (first > 12) {
+
+            /* definitely dd/mm */
+
+            return sorttable.sort_ddmm;
+
+          } else if (second > 12) {
+
+            return sorttable.sort_mmdd;
+
+          } else {
+
+            /* looks like a date, but we can't tell which, so assume
+
+             that it's dd/mm (English imperialism!) and keep looking */
+
+            sortfn = sorttable.sort_ddmm;
+
+          }
+
+        }
+
+      }	
+
+
+	  return sortfn;
+
+  },
+
+
+  getInnerText: function(node) {
+
+    /* gets the text we want to use for sorting for a cell.
+
+     strips leading and trailing whitespace.
+
+     this is *not* a generic getInnerText function; it's special to sorttable.
+
+     for example, you can override the cell text with a customkey attribute.
+
+     it also gets .value for <input> fields. */
+
+
+    if (!node) return "";
+
+
+    hasInputs = (typeof node.getElementsByTagName == 'function') &&
+
+                 node.getElementsByTagName('input').length;
+
+
+    if (node.getAttribute("sorttable_customkey") != null) {
+
+      return node.getAttribute("sorttable_customkey");
+
+    }
+
+    else if (typeof node.textContent != 'undefined' && !hasInputs) {
+
+      return node.textContent.replace(/^\s+|\s+$/g, '');
+
+    }
+
+    else if (typeof node.innerText != 'undefined' && !hasInputs) {
+
+      return node.innerText.replace(/^\s+|\s+$/g, '');
+
+    }
+
+    else if (typeof node.text != 'undefined' && !hasInputs) {
+
+      return node.text.replace(/^\s+|\s+$/g, '');
+
+    }
+
+    else {
+
+      switch (node.nodeType) {
+
+        case 3:
+
+          if (node.nodeName.toLowerCase() == 'input') {
+
+            return node.value.replace(/^\s+|\s+$/g, '');
+
+          }
+
+        case 4:
+
+          return node.nodeValue.replace(/^\s+|\s+$/g, '');
+
+          break;
+
+        case 1:
+
+        case 11:
+
+          var innerText = '';
+
+          for (var i = 0; i < node.childNodes.length; i++) {
+
+            innerText += sorttable.getInnerText(node.childNodes[i]);
+
+          }
+
+          return innerText.replace(/^\s+|\s+$/g, '');
+
+          break;
+
+        default:
+
+          return '';
+
+      }
+
+    }
+
+  },
+
+
+  reverse: function(tbody) {
+
+    /* reverse the rows in a tbody */
+
+    newrows = [];
+
+    for (var i=0; i<tbody.rows.length; i++) {
+
+      newrows[newrows.length] = tbody.rows[i];
+
+    }
+
+    for (var i=newrows.length-1; i>=0; i--) {
+
+       tbody.appendChild(newrows[i]);
+
+    }
+
+    delete newrows;
+
+  },
+
+
+  /* sort functions
+
+     each sort function takes two parameters, a and b
+
+     you are comparing a[0] and b[0] */
+
+
+  sort_numeric: function(a,b) {
+
+    aa = parseFloat(a[0].replace(/[^0-9.-]/g,''));
+
+    if (isNaN(aa)) aa = 0;
+
+    bb = parseFloat(b[0].replace(/[^0-9.-]/g,''));
+
+    if (isNaN(bb)) bb = 0;
+
+    return aa-bb;
+
+  },
+
+  sort_alpha: function(a,b) {
+
+	a0_lc = a[0].toLowerCase();
+
+	b0_lc = b[0].toLowerCase();
+
+
+    if (a0_lc==b0_lc) return 0;
+
+    if (a0_lc<b0_lc) return -1;
+
+    return 1;
+
+  },
+
+  sort_ddmm: function(a,b) {
+
+    mtch = a[0].match(sorttable.DATE_RE);
+
+    y = mtch[3]; m = mtch[2]; d = mtch[1];
+
+    if (m.length == 1) m = '0'+m;
+
+    if (d.length == 1) d = '0'+d;
+
+    dt1 = y+m+d;
+
+    mtch = b[0].match(sorttable.DATE_RE);
+
+    y = mtch[3]; m = mtch[2]; d = mtch[1];
+
+    if (m.length == 1) m = '0'+m;
+
+    if (d.length == 1) d = '0'+d;
+
+    dt2 = y+m+d;
+
+    if (dt1==dt2) return 0;
+
+    if (dt1<dt2) return -1;
+
+    return 1;
+
+  },
+
+  sort_mmdd: function(a,b) {
+
+    mtch = a[0].match(sorttable.DATE_RE);
+
+    y = mtch[3]; d = mtch[2]; m = mtch[1];
+
+    if (m.length == 1) m = '0'+m;
+
+    if (d.length == 1) d = '0'+d;
+
+    dt1 = y+m+d;
+
+    mtch = b[0].match(sorttable.DATE_RE);
+
+    y = mtch[3]; d = mtch[2]; m = mtch[1];
+
+    if (m.length == 1) m = '0'+m;
+
+    if (d.length == 1) d = '0'+d;
+
+    dt2 = y+m+d;
+
+    if (dt1==dt2) return 0;
+
+    if (dt1<dt2) return -1;
+
+    return 1;
+
+  },
+
+
+  shaker_sort: function(list, comp_func) {
+
+    /* A stable sort function to allow multi-level sorting of data
+
+     see: http://en.wikipedia.org/wiki/Cocktail_sort */
+
+    var b = 0;
+
+    var t = list.length - 1;
+
+    var swap = true;
+
+
+    while(swap) {
+
+        swap = false;
+
+        for(var i = b; i < t; ++i) {
+
+            if ( comp_func(list[i], list[i+1]) > 0 ) {
+
+                var q = list[i]; list[i] = list[i+1]; list[i+1] = q;
+
+                swap = true;
+
+            }
+
+        } /* for */
+
+        t--;
+
+
+        if (!swap) break;
+
+
+        for(var i = t; i > b; --i) {
+
+            if ( comp_func(list[i], list[i-1]) < 0 ) {
+
+                var q = list[i]; list[i] = list[i-1]; list[i-1] = q;
+
+                swap = true;
+
+            }
+
+        } /* for */
+
+        b++;
+
+
+    } /* while(swap) */
+
+  }
+
+}
+
+
+/* ******************************************************************
+
+   Supporting functions: bundled here to avoid depending on a library
+
+   ****************************************************************** */
+
+
+/* for Mozilla/Opera9 */
+
+if (document.addEventListener) {
+
+    document.addEventListener("DOMContentLoaded", sorttable.init, false);
+
+    document.addEventListener("DOMContentLoaded", controlimage.init, false);
+
+    document.addEventListener("DOMContentLoaded", csstableselector.init, false);
+
+}
+
+
+/* for Internet Explorer */
+
+/*@cc_on @*/
+
+/*@if (@_win32)
+
+    document.write("<script id=__ie_onload defer src=javascript:void(0)><\/script>");
+
+    var script = document.getElementById("__ie_onload");
+
+    script.onreadystatechange = function() {
+
+        if (this.readyState == "complete") {
+
+            sorttable.init(); // call the onload handler
+
+	    controlimage.init();
+
+	    csstableselector.init();
+
+        }
+
+    };
+
+/*@end @*/
+
+
+/* for Safari */
+
+if (/WebKit/i.test(navigator.userAgent)) { /* sniff */
+
+    var _timer = setInterval(function() {
+
+        if (/loaded|complete/.test(document.readyState)) {
+
+            sorttable.init(); /* call the onload handler */
+
+	    controlimage.init();
+
+	    csstableselector.init();
+
+        }
+
+    }, 10);
+
+}
+
+
+/* for other browsers */
+
+window.onload = function (){
+
+    sorttable.init();
+
+    controlimage.init();
+
+};
+
+
+
+function dean_addEvent(element, type, handler) {
+
+	if (element.addEventListener) {
+
+		element.addEventListener(type, handler, false);
+
+	} else {
+
+		/* assign each event handler a unique ID */
+
+		if (!handler.$$guid) handler.$$guid = dean_addEvent.guid++;
+
+		/* create a hash table of event types for the element */
+
+		if (!element.events) element.events = {};
+
+		/* create a hash table of event handlers for each element/event pair */
+
+		var handlers = element.events[type];
+
+		if (!handlers) {
+
+			handlers = element.events[type] = {};
+
+			/* store the existing event handler (if there is one) */
+
+			if (element["on" + type]) {
+
+				handlers[0] = element["on" + type];
+
+			}
+
+		}
+
+		/* store the event handler in the hash table */
+
+		handlers[handler.$$guid] = handler;
+
+		/* assign a global event handler to do all the work */
+
+		element["on" + type] = handleEvent;
+
+	}
+
+};
+
+/* a counter used to create unique IDs */
+
+dean_addEvent.guid = 1;
+
+
+function removeEvent(element, type, handler) {
+
+	if (element.removeEventListener) {
+
+		element.removeEventListener(type, handler, false);
+
+	} else {
+
+		/* delete the event handler from the hash table */
+
+		if (element.events && element.events[type]) {
+
+			delete element.events[type][handler.$$guid];
+
+		}
+
+	}
+
+};
+
+
+function handleEvent(event) {
+
+	var returnValue = true;
+
+	/* grab the event object (IE uses a global event object) */
+
+	event = event || fixEvent(((this.ownerDocument || this.document || this).parentWindow || window).event);
+
+	/* get a reference to the hash table of event handlers */
+
+	var handlers = this.events[event.type];
+
+	/* execute each event handler */
+
+	for (var i in handlers) {
+
+		this.$$handleEvent = handlers[i];
+
+		if (this.$$handleEvent(event) === false) {
+
+			returnValue = false;
+
+		}
+
+	}
+
+	return returnValue;
+
+};
+
+
+function fixEvent(event) {
+
+	/* add W3C standard event methods */
+
+	event.preventDefault = fixEvent.preventDefault;
+
+	event.stopPropagation = fixEvent.stopPropagation;
+
+	return event;
+
+};
+
+fixEvent.preventDefault = function() {
+
+	this.returnValue = false;
+
+};
+
+fixEvent.stopPropagation = function() {
+
+  this.cancelBubble = true;
+
+}
+
+
+/* Dean's forEach: http://dean.edwards.name/base/forEach.js
+
+
+	forEach, version 1.0
+
+	Copyright 2006, Dean Edwards
+
+	License: http://www.opensource.org/licenses/mit-license.php
+
+*/
+
+
+/* array-like enumeration */
+
+if (!Array.forEach) { /* mozilla already supports this */
+
+	Array.forEach = function(array, block, context) {
+
+		for (var i = 0; i < array.length; i++) {
+
+			block.call(context, array[i], i, array);
+
+		}
+
+	};
+
+}
+
+
+/* generic enumeration */
+
+Function.prototype.forEach = function(object, block, context) {
+
+	for (var key in object) {
+
+		if (typeof this.prototype[key] == "undefined") {
+
+			block.call(context, object[key], key, object);
+
+		}
+
+	}
+
+};
+
+
+/* character enumeration */
+
+String.forEach = function(string, block, context) {
+
+	Array.forEach(string.split(""), function(chr, index) {
+
+		block.call(context, chr, index, string);
+
+	});
+
+};
+
+
+/* globally resolve forEach enumeration */
+
+var forEach = function(object, block, context) {
+
+	if (object) {
+
+		var resolve = Object; /* default */
+
+		if (object instanceof Function) {
+
+			/* functions have a "length" property */
+
+			resolve = Function;
+
+		} else if (object.forEach instanceof Function) {
+
+			/* the object implements a custom forEach method so use that */
+
+			object.forEach(block, context);
+
+			return;
+
+		} else if (typeof object == "string") {
+
+			/* the object is a string */
+
+			resolve = String;
+
+		} else if (typeof object.length == "number") {
+
+			/* the object is array-like */
+
+			resolve = Array;
+
+		}
+
+		resolve.forEach(object, block, context);
+
+	}
+
+};
+
+
+</script>
+
+<style type="text/css">
+
+
+.Template_Gray {
+
+	margin:0px;
+
+	padding:0px;
+
+	width:1500px;
+
+	box-shadow: 0px 10px 5px #888888;
+
+	border:1px solid #ffffff;
+
+	-moz-border-radius-bottomleft:0px;
+
+	-webkit-border-bottom-left-radius:0px;
+
+	border-bottom-left-radius:0px;
+
+	-moz-border-radius-bottomright:0px;
+
+	-webkit-border-bottom-right-radius:0px;
+
+	border-bottom-right-radius:0px;
+
+	-moz-border-radius-topright:0px;
+
+	-webkit-border-top-right-radius:0px;
+
+	border-top-right-radius:0px;
+
+	-moz-border-radius-topleft:0px;
+
+	-webkit-border-top-left-radius:0px;
+
+	border-top-left-radius:0px;
+
+}
+
+
+.Template_Gray table {
+
+	width:100%;
+
+	max-height:100%;
+
+	margin:0px;padding:0px;
+
+	border-collapse:collapse;
+
+	table-layout:fixed;
+
+}
+
+
+
+.Template_Gray tr:hover td {
+
+	background-color:#afcaeb;
+
+}
+
+
+.Template_Gray td{
+
+	vertical-align:middle;
+
+	border-width:0px 1px 1px 0px;
+
+	text-align:left;
+
+	padding:7px;
+
+	font-size:11px;
+
+	font-family:Arial;
+
+	font-weight:bold;
+
+	color:#666666;
+
+	word-break:break-all;
+
+	word-wrap:break-word;
+
+}
+
+
+.Template_Gray th{
+
+	vertical-align:middle;
+
+	border-width:0px 1px 1px 0px;
+
+	text-align:left;
+
+	padding:7px;
+
+	font-size:11px;
+
+	font-family:Arial;
+
+	font-weight:bold;
+
+	color:#000000;
+
+}
+
+
+.Template_Gray pre{
+
+	font-size:11px;	
+
+	font-family:Arial;
+
+	font-weight:bold;
+
+	color:#666666;
+
+}
+
+
+.Template_Gray .width_200{
+
+	width:200px;
+
+}
+
+
+.Template_Gray .width_150{
+
+	width:150px;
+
+}
+
+
+.Template_Gray .width_100{
+
+	width:100px;
+
+}
+
+
+.Template_Gray .width_50{
+
+	width:50px;
+
+}
+
+
+/* For IE7,8,9 */
+
+.Template_Gray tr.nth-child-odd {
+
+	background-color:#eeeeee; 
+
+}
+
+
+.Template_Gray tr.nth-child-even { 
+
+	background-color:#ffffff; 
+
+}
+
+
+.Template_Gray tr.header th{
+
+	background:-o-linear-gradient(bottom, #ffffff 5%, #ffffff 100%);
+
+	background:-webkit-gradient( linear, left top, left bottom, color-stop(0.05, #ffffff), color-stop(1, #ffffff) );
+
+	background:-moz-linear-gradient( center top, #ffffff 5%, #ffffff 100% );		filter:progid:DXImageTransform.Microsoft.gradient(startColorstr="#ffffff", endColorstr="#ffffff");
+
+	background: -o-linear-gradient(top,#ffffff,ffffff);
+
+	background-color:#ffffff;
+
+	border:0px solid #ffffff;
+
+	text-align:center;
+
+	border-width:0px 0px 0px 0px;
+
+	font-size:14px;
+
+	font-family:Arial;
+
+	border-bottom:1px solid #000000;
+
+	color:#746666;
+
+}
+
+
+.Template_Gray tr.header:hover th{
+
+	background:-o-linear-gradient(bottom, #ffffff 5%, #ffffff 100%);
+
+	background:-webkit-gradient( linear, left top, left bottom, color-stop(0.05, #ffffff), color-stop(1, #ffffff) );
+
+	background:-moz-linear-gradient( center top, #ffffff 5%, #ffffff 100% );		filter:progid:DXImageTransform.Microsoft.gradient(startColorstr="#ffffff", endColorstr="#ffffff");
+
+	background: -o-linear-gradient(top,#ffffff,ffffff);
+
+	background-color:#ffffff;
+
+}
+
+
+/* For IE7,8,9 */
+
+
+.Template_Blue {
+
+	margin:0px;
+
+	padding:0px;
+
+	width:1500px;
+
+	box-shadow: 0px 10px 5px #888888;
+
+	border:1px solid #ffffff;
+
+	-moz-border-radius-bottomleft:0px;
+
+	-webkit-border-bottom-left-radius:0px;
+
+	border-bottom-left-radius:0px;
+
+	-moz-border-radius-bottomright:0px;
+
+	-webkit-border-bottom-right-radius:0px;
+
+	border-bottom-right-radius:0px;
+
+	-moz-border-radius-topright:0px;
+
+	-webkit-border-top-right-radius:0px;
+
+	border-top-right-radius:0px;
+
+	-moz-border-radius-topleft:0px;
+
+	-webkit-border-top-left-radius:0px;
+
+	border-top-left-radius:0px;
+
+}
+
+
+.Template_Blue table {
+
+	width:100%;
+
+	max-height:100%;
+
+	margin:0px;padding:0px;
+
+	border-collapse:collapse;
+
+	table-layout:fixed;
+
+}
+
+
+
+.Template_Blue tr:hover td {
+
+	background-color:#afcaeb;
+
+}
+
+
+.Template_Blue td{
+
+	vertical-align:middle;
+
+	border-width:0px 1px 1px 0px;
+
+	text-align:left;
+
+	padding:7px;
+
+	font-size:11px;
+
+	font-family:Arial;
+
+	font-weight:bold;
+
+	color:#666666;
+
+	word-break:break-all;
+
+	word-wrap:break-word;
+
+}
+
+
+.Template_Blue th{
+
+	vertical-align:middle;
+
+	border-width:0px 1px 1px 0px;
+
+	text-align:left;
+
+	padding:7px;
+
+	font-size:11px;
+
+	font-family:Arial;
+
+	font-weight:bold;
+
+	color:#000000;
+
+}
+
+
+.Template_Blue pre{
+
+	font-size:11px;	
+
+	font-family:Arial;
+
+	font-weight:bold;
+
+	color:#666666;
+
+}
+
+
+.Template_Blue .width_200{
+
+	width:200px;
+
+}
+
+
+.Template_Blue .width_150{
+
+	width:150px;
+
+}
+
+
+.Template_Blue .width_100{
+
+	width:100px;
+
+}
+
+
+.Template_Blue .width_50{
+
+	width:50px;
+
+}
+
+
+/* For IE7,8,9 */
+
+.Template_Blue tr.nth-child-odd {
+
+	background-color:#daeef3; 
+
+}
+
+
+.Template_Blue tr.nth-child-even { 
+
+	background-color:#ffffff; 
+
+}
+
+
+.Template_Blue tr.header th{
+
+	background:-o-linear-gradient(bottom, #ffffff 5%, #ffffff 100%);
+
+	background:-webkit-gradient( linear, left top, left bottom, color-stop(0.05, #ffffff), color-stop(1, #ffffff) );
+
+	background:-moz-linear-gradient( center top, #ffffff 5%, #ffffff 100% );		filter:progid:DXImageTransform.Microsoft.gradient(startColorstr="#ffffff", endColorstr="#ffffff");
+
+	background: -o-linear-gradient(top,#ffffff,ffffff);
+
+	background-color:#ffffff;
+
+	border:0px solid #ffffff;
+
+	text-align:center;
+
+	border-width:0px 0px 0px 0px;
+
+	font-size:14px;
+
+	font-family:Arial;
+
+	border-bottom:1px solid #000000;
+
+	color:#746666;
+
+}
+
+
+.Template_Blue tr.header:hover th{
+
+	background:-o-linear-gradient(bottom, #ffffff 5%, #ffffff 100%);
+
+	background:-webkit-gradient( linear, left top, left bottom, color-stop(0.05, #ffffff), color-stop(1, #ffffff) );
+
+	background:-moz-linear-gradient( center top, #ffffff 5%, #ffffff 100% );		filter:progid:DXImageTransform.Microsoft.gradient(startColorstr="#ffffff", endColorstr="#ffffff");
+
+	background: -o-linear-gradient(top,#ffffff,ffffff);
+
+	background-color:#ffffff;
+
+}
+
+
+/* For IE7,8,9 */
+
+
+</style>
+
+</head>
+
+<body>
+
+<select name="CSSSelector">
+
+  <option value="Template_Gray" style="background-color:#eeeeee;">Template_Gray</option>
+
+  <option value="Template_Blue" style="background-color:#daeef3;">Template_Blue</option>
+
+</select>
+
+<div id="TableGenerator" class="Template_Gray">
+
+<!-- Start of Marker List -->
+
+<!-- 
+
+We Support the following tags at present for exporting markers.
+
+{ASSETNAME} : name of asset
+
+{BIN} :	bin of asset	
+
+{THUMBNAILIMAGE} : thumbnail image of marker
+
+{MARKERNAME} : name of marker
+
+{DESCRIPTION} : description of marker
+
+{IN} : in point of marker
+
+{OUT} : out point of marker
+
+{DURATION} : duration of marker
+
+{MARKERTYPE} : type of marker
+
+{FILEPATH} : file path of current asset
+
+
+Attention: Start tag and end tag of table should be placed on separated line.
+
+-->
+
+<table>
+
+<tr class="header"><th class="width_150">Thumbnail Image</th><th class="width_100">Marker Name</th><th class="width_200">Description</th><th class="width_100">In</th><th class="width_100">Out</th><th class="width_100">Duration</th><th class="width_100">Marker Type</th></tr>
+
+<tr class="nth-child-odd"></td><td><img src="./images/insivible love for ADR timecode markers 20190818thumb_Scene 2_2019-08-18-01-56-23-2777031.jpg"/></td><td><pre>Scene 2</pre></td><td><pre>James</pre></td><td>00:02:40:02</td><td>00:02:40:02</td><td>00:00:00:00</td><td><pre>Comment</pre></td></tr>
+
+<tr class="nth-child-even"><td><img src="./images/insivible love for ADR timecode markers 20190818thumb__2019-08-18-01-56-23-2778802.jpg"/></td><td><pre></pre></td><td><pre></pre></td><td>00:02:58:00</td><td>00:02:58:00</td><td>00:00:00:00</td><td><pre>Comment</pre></td></tr>
+
+<tr class="nth-child-odd"></td><td><img src="./images/insivible love for ADR timecode markers 20190818thumb__2019-08-18-01-56-23-2780033.jpg"/></td><td><pre></pre></td><td><pre></pre></td><td>00:02:59:11</td><td>00:02:59:11</td><td>00:00:00:00</td><td><pre>Comment</pre></td></tr>
+
+<tr class="nth-child-even"><td><img src="./images/insivible love for ADR timecode markers 20190818thumb_scene 14 _2019-08-18-01-56-23-2781104.jpg"/></td><td><pre>scene 14 </pre></td><td><pre>p19       DEAN SAWYER  come in.  Doctor Marquis?</pre></td><td>00:02:59:11</td><td>00:02:59:11</td><td>00:00:00:00</td><td><pre>Comment</pre></td></tr>
+
+<tr class="nth-child-odd"></td><td><img src="./images/insivible love for ADR timecode markers 20190818thumb__2019-08-18-01-56-23-2782385.jpg"/></td><td><pre></pre></td><td><pre></pre></td><td>00:04:34:12</td><td>00:04:34:12</td><td>00:00:00:00</td><td><pre>Comment</pre></td></tr>
+
+<tr class="nth-child-even"><td><img src="./images/insivible love for ADR timecode markers 20190818thumb_scene 19_2019-08-18-01-56-23-2783436.jpg"/></td><td><pre>scene 19</pre></td><td><pre>p26</pre></td><td>00:10:21:08</td><td>00:10:21:08</td><td>00:00:00:00</td><td><pre>Comment</pre></td></tr>
+
+<tr class="nth-child-odd"></td><td><img src="./images/insivible love for ADR timecode markers 20190818thumb_scene 19 _2019-08-18-01-56-23-2784567.jpg"/></td><td><pre>scene 19 </pre></td><td><pre>p26 james i agree</pre></td><td>00:10:36:15</td><td>00:10:36:15</td><td>00:00:00:00</td><td><pre>Comment</pre></td></tr>
+
+<tr class="nth-child-even"><td><img src="./images/insivible love for ADR timecode markers 20190818thumb_scene 19_2019-08-18-01-56-23-2785718.jpg"/></td><td><pre>scene 19</pre></td><td><pre>other doctors gossip</pre></td><td>00:11:03:18</td><td>00:11:03:18</td><td>00:00:00:00</td><td><pre>Comment</pre></td></tr>
+
+<tr class="nth-child-odd"></td><td><img src="./images/insivible love for ADR timecode markers 20190818thumb_scene 19_2019-08-18-01-56-23-2786899.jpg"/></td><td><pre>scene 19</pre></td><td><pre>Sawyer: we are not here to gossip</pre></td><td>00:11:15:16</td><td>00:11:15:16</td><td>00:00:00:00</td><td><pre>Comment</pre></td></tr>
+
+<tr class="nth-child-even"><td><img src="./images/insivible love for ADR timecode markers 20190818thumb_scene 31 _2019-08-18-01-56-23-27881610.jpg"/></td><td><pre>scene 31 </pre></td><td><pre>p40  James flight with Hoang on street with rice. Honey, I cannot let you leave alone!</pre></td><td>00:23:06:04</td><td>00:23:06:04</td><td>00:00:00:00</td><td><pre>Comment</pre></td></tr>
+
+<tr class="nth-child-odd"></td><td><img src="./images/insivible love for ADR timecode markers 20190818thumb_scene 64/65_2019-08-18-01-56-23-27894311.jpg"/></td><td><pre>scene 64/65</pre></td><td><pre>p94 flash back: James: Don’t leave. I want you now!</pre></td><td>00:44:56:09</td><td>00:44:56:09</td><td>00:00:00:00</td><td><pre>Comment</pre></td></tr>
+
+<tr class="nth-child-even"><td><img src="./images/insivible love for ADR timecode markers 20190818thumb_scene 64_2019-08-18-01-56-23-27906212.jpg"/></td><td><pre>scene 64</pre></td><td><pre>p94 James Ignore them! Come with me!</pre></td><td>00:45:06:10</td><td>00:45:06:10</td><td>00:00:00:00</td><td><pre>Comment</pre></td></tr>
+
+<tr class="nth-child-odd"></td><td><img src="./images/insivible love for ADR timecode markers 20190818thumb_scene sex transition_2019-08-18-01-56-23-27917913.jpg"/></td><td><pre>scene sex transition</pre></td><td><pre>moaning</pre></td><td>00:45:54:10</td><td>00:45:54:10</td><td>00:00:00:00</td><td><pre>Comment</pre></td></tr>
+
+<tr class="nth-child-even"><td><img src="./images/insivible love for ADR timecode markers 20190818thumb_Scene Sex _2019-08-18-01-56-23-27929714.jpg"/></td><td><pre>Scene Sex </pre></td><td><pre>moaning</pre></td><td>00:46:12:04</td><td>00:46:12:04</td><td>00:00:00:00</td><td><pre>Comment</pre></td></tr>
+
+<tr class="nth-child-odd"></td><td><img src="./images/insivible love for ADR timecode markers 20190818thumb_scene 25_2019-08-18-01-56-23-27940515.jpg"/></td><td><pre>scene 25</pre></td><td><pre>p32  James cannot divorce </pre></td><td>00:46:30:16</td><td>00:46:30:16</td><td>00:00:00:00</td><td><pre>Comment</pre></td></tr>
+
+<tr class="nth-child-even"><td><img src="./images/insivible love for ADR timecode markers 20190818thumb__2019-08-18-01-56-23-27952016.jpg"/></td><td><pre></pre></td><td><pre></pre></td><td>00:47:58:00</td><td>00:47:58:00</td><td>00:00:00:00</td><td><pre>Comment</pre></td></tr>
+
+<tr class="nth-child-odd"></td><td><img src="./images/insivible love for ADR timecode markers 20190818thumb_scene 53_2019-08-18-01-56-23-27964117.jpg"/></td><td><pre>scene 53</pre></td><td><pre>bar  p 79
+She was sentenced to death</pre></td><td>01:10:05:05</td><td>01:10:05:05</td><td>00:00:00:00</td><td><pre>Comment</pre></td></tr>
+
+<tr class="nth-child-even"><td><img src="./images/insivible love for ADR timecode markers 20190818thumb_scene 54 _2019-08-18-01-56-23-27975918.jpg"/></td><td><pre>scene 54 </pre></td><td><pre>p80-81 recall.  Hoa dances with Henry. James: what happened?</pre></td><td>01:10:50:18</td><td>01:10:50:18</td><td>00:00:00:00</td><td><pre>Comment</pre></td></tr>
+
+<tr class="nth-child-odd"></td><td><img src="./images/insivible love for ADR timecode markers 20190818thumb_scene 55 _2019-08-18-01-56-23-27987919.jpg"/></td><td><pre>scene 55 </pre></td><td><pre>p82-83 outside of the bar Hoa angry leaving</pre></td><td>01:11:29:16</td><td>01:11:29:16</td><td>00:00:00:00</td><td><pre>Comment</pre></td></tr>
+
+<tr class="nth-child-even"><td><img src="./images/insivible love for ADR timecode markers 20190818thumb_scene 55 _2019-08-18-01-56-23-28000020.jpg"/></td><td><pre>scene 55 </pre></td><td><pre>p83 -84  ganster </pre></td><td>01:11:54:20</td><td>01:11:54:20</td><td>00:00:00:00</td><td><pre>Comment</pre></td></tr>
+
+<tr class="nth-child-odd"></td><td><img src="./images/insivible love for ADR timecode markers 20190818thumb_scene 57_2019-08-18-01-56-23-28011021.jpg"/></td><td><pre>scene 57</pre></td><td><pre>p86  real time she’s a vietnamese woman after all</pre></td><td>01:12:47:10</td><td>01:12:47:10</td><td>00:00:00:00</td><td><pre>Comment</pre></td></tr>
+
+<tr class="nth-child-even"><td><img src="./images/insivible love for ADR timecode markers 20190818thumb_scene 59 _2019-08-18-01-56-23-28022922.jpg"/></td><td><pre>scene 59 </pre></td><td><pre>p87 it’s all behind you,,, i know my sins</pre></td><td>01:13:38:07</td><td>01:13:38:07</td><td>00:00:00:00</td><td><pre>Comment</pre></td></tr>
+
+<tr class="nth-child-odd"></td><td><img src="./images/insivible love for ADR timecode markers 20190818thumb_scene 63_2019-08-18-01-56-23-28034523.jpg"/></td><td><pre>scene 63</pre></td><td><pre>p93 church </pre></td><td>01:14:09:06</td><td>01:14:09:06</td><td>00:00:00:00</td><td><pre>Comment</pre></td></tr>
+
+<tr class="nth-child-even"><td><img src="./images/insivible love for ADR timecode markers 20190818thumb_scene 59_2019-08-18-01-56-23-28045624.jpg"/></td><td><pre>scene 59</pre></td><td><pre>p88  james is drunk,  Hoa !  ...That&apos;s not her. </pre></td><td>01:14:50:18</td><td>01:14:50:18</td><td>00:00:00:00</td><td><pre>Comment</pre></td></tr>
+
+<tr class="nth-child-odd"></td><td><img src="./images/insivible love for ADR timecode markers 20190818thumb_scence 59 _2019-08-18-01-56-23-28057625.jpg"/></td><td><pre>scence 59 </pre></td><td><pre>Hoa </pre></td><td>01:15:06:01</td><td>01:15:06:01</td><td>00:00:00:00</td><td><pre>Comment</pre></td></tr>
+
+<tr class="nth-child-even"><td><img src="./images/insivible love for ADR timecode markers 20190818thumb_scene 60_2019-08-18-01-56-23-28068326.jpg"/></td><td><pre>scene 60</pre></td><td><pre>James back  home groaning</pre></td><td>01:21:40:23</td><td>01:21:40:23</td><td>00:00:00:00</td><td><pre>Comment</pre></td></tr>
+
+<tr class="nth-child-odd"></td><td><img src="./images/insivible love for ADR timecode markers 20190818thumb_scene 61 _2019-08-18-01-56-23-28079527.jpg"/></td><td><pre>scene 61 </pre></td><td><pre>p90-91  Hoa and James </pre></td><td>01:22:08:05</td><td>01:22:08:05</td><td>00:00:00:00</td><td><pre>Comment</pre></td></tr>
+
+<tr class="nth-child-even"><td><img src="./images/insivible love for ADR timecode markers 20190818thumb_scene 62 _2019-08-18-01-56-23-28090928.jpg"/></td><td><pre>scene 62 </pre></td><td><pre>Sawyer office talk to james 91-93</pre></td><td>01:22:21:16</td><td>01:22:21:16</td><td>00:00:00:00</td><td><pre>Comment</pre></td></tr>
+
+<tr class="nth-child-odd"></td><td><img src="./images/insivible love for ADR timecode markers 20190818thumb_scene 62_2019-08-18-01-56-23-28102629.jpg"/></td><td><pre>scene 62</pre></td><td><pre>p92-93 send me back to America</pre></td><td>01:23:00:11</td><td>01:23:00:11</td><td>00:00:00:00</td><td><pre>Comment</pre></td></tr>
+
+<tr class="nth-child-even"><td><img src="./images/insivible love for ADR timecode markers 20190818thumb_scene 62_2019-08-18-01-56-23-28114330.jpg"/></td><td><pre>scene 62</pre></td><td><pre>Sawyer: but she has to go </pre></td><td>01:23:16:19</td><td>01:23:16:19</td><td>00:00:00:00</td><td><pre>Comment</pre></td></tr>
+
+<tr class="nth-child-odd"></td><td><img src="./images/insivible love for ADR timecode markers 20190818thumb_scene 60_2019-08-18-01-56-23-28125831.jpg"/></td><td><pre>scene 60</pre></td><td><pre>James back  home groaning</pre></td><td>01:23:36:18</td><td>01:23:36:18</td><td>00:00:00:00</td><td><pre>Comment</pre></td></tr>
+
+<tr class="nth-child-even"><td><img src="./images/insivible love for ADR timecode markers 20190818thumb_scene 67 _2019-08-18-01-56-23-28137532.jpg"/></td><td><pre>scene 67 </pre></td><td><pre>p95-96   Why do we have to have
+a wedding ceremony? </pre></td><td>01:24:00:00</td><td>01:24:00:00</td><td>00:00:00:00</td><td><pre>Comment</pre></td></tr>
+
+<tr class="nth-child-odd"></td><td><img src="./images/insivible love for ADR timecode markers 20190818thumb_scene 67 _2019-08-18-01-56-23-28158033.jpg"/></td><td><pre>scene 67 </pre></td><td><pre>hoa i love you </pre></td><td>01:25:04:22</td><td>01:25:04:22</td><td>00:00:00:00</td><td><pre>Comment</pre></td></tr>
+
+<tr class="nth-child-even"><td><img src="./images/insivible love for ADR timecode markers 20190818thumb_scene 60_2019-08-18-01-56-23-28170034.jpg"/></td><td><pre>scene 60</pre></td><td><pre>James back  home groaning</pre></td><td>01:25:18:22</td><td>01:25:18:22</td><td>00:00:00:00</td><td><pre>Comment</pre></td></tr>
+
+<tr class="nth-child-odd"></td><td><img src="./images/insivible love for ADR timecode markers 20190818thumb_scene 70 _2019-08-18-01-56-23-28181535.jpg"/></td><td><pre>scene 70 </pre></td><td><pre>church p97-99</pre></td><td>01:40:36:02</td><td>01:40:36:02</td><td>00:00:00:00</td><td><pre>Comment</pre></td></tr>
+
+<tr class="nth-child-even"><td><img src="./images/insivible love for ADR timecode markers 20190818thumb_scene 77_2019-08-18-01-56-23-28192936.jpg"/></td><td><pre>scene 77</pre></td><td><pre>p111 James &amp; Hoang meet on street. fight. You!!</pre></td><td>01:41:48:00</td><td>01:41:48:00</td><td>00:00:00:00</td><td><pre>Comment</pre></td></tr>
+
+<tr class="nth-child-odd"></td><td><img src="./images/insivible love for ADR timecode markers 20190818thumb_scene 105_2019-08-18-01-56-23-28204837.jpg"/></td><td><pre>scene 105</pre></td><td><pre>sawyer , james leaving . there is a ship</pre></td><td>01:44:06:00</td><td>01:44:06:00</td><td>00:00:00:00</td><td><pre>Comment</pre></td></tr>
+
+</table>
+
+<!-- End of Marker List -->
+
+</div>	
+
+
+</body>
+
+</html>	
